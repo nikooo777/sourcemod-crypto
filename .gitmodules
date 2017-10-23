@@ -1,0 +1,3 @@
+[submodule "lbrycrd"]
+	path = lbrycrd
+	url = https://github.com/lbryio/lbrycrd.git

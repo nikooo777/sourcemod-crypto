@@ -16,18 +16,18 @@
 #define RPC_USER "lbry"
 #define RPC_PASSWORD "change_m3"
 
-public Plugin myinfo = 
+public Plugin myinfo =
 {
-	name = "Crypto-Trades",
-	author = PLUGIN_AUTHOR,
-	description = "A plugin that allows Crypto transactions between players",
-	version = PLUGIN_VERSION,
-	url = "https://go-free.info"
+    name = "Crypto-Trades",
+    author = PLUGIN_AUTHOR,
+    description = "A plugin that allows Crypto transactions between players",
+    version = PLUGIN_VERSION,
+    url = "https://go-free.info"
 };
 
 public void OnPluginStart()
 {
-	RegConsoleCmd("sm_wallet", getWalletAddress, "Returns an address associated with your account");
+    RegConsoleCmd("sm_wallet", getWalletAddress, "Returns an address associated with your account");
 }
 
 public void OnRequestComplete(bool bSuccess, int iStatusCode, StringMap tHeaders, const char[] sBody, int iErrorType, int iErrorNum, any data)
@@ -44,7 +44,7 @@ public void OnRequestComplete(bool bSuccess, int iStatusCode, StringMap tHeaders
             tHeaders.GetString(sKey, sValue, sizeof(sValue));
             PrintToServer("%s => %s", sKey, sValue);
         }
-
+        PrintToChat(data, "Your personal address LBRY is: %s",sBody);
         PrintToServer("response: %s", sBody);
     } else {
         PrintToServer("failed request with error type %d, error num %d", iErrorType, iErrorNum);
@@ -53,20 +53,20 @@ public void OnRequestComplete(bool bSuccess, int iStatusCode, StringMap tHeaders
 
 public Action getWalletAddress(int client, int args)
 {
-	/*if (!IsValidClient(client))
-	return Plugin_Handled;
-	
-	char steamid[MAX_STEAMAUTH_LENGTH];
-	GetClientAuthId(client, AuthId_SteamID64, steamid, sizeof(steamid), true);
-	*/
-	
-	char[] data = "{\"method\":\"getaccountaddress\",\"params\":[\"niko123\"]}";
-	HTTPRequest req = HTTPRequest("POST", "http://localhost", "OnRequestComplete");
-	req.debug = true;
-	//req.headers.SetString("content-type", "application/json");
-	//req.data = data;
-	req.SendRequest();
-	return Plugin_Handled;
+    if (!IsValidClient(client))
+        return Plugin_Handled;
+
+    char steamid[MAX_STEAMAUTH_LENGTH];
+    GetClientAuthId(client, AuthId_SteamID64, steamid, sizeof(steamid), true);
+
+    char data[MAX_BODY_SIZE];
+    Format(data, sizeof(data), "{\"method\":\"getaccountaddress\",\"params\":[\"%s\"]}", steamid);
+    HTTPRequest req = HTTPRequest("POST", "http://localhost", "OnRequestComplete",client,data);
+    req.debug = true;
+    //req.headers.SetString("content-type", "application/json");
+    //req.data = data;
+    req.SendRequest();
+    return Plugin_Handled;
 }
 public void OnMapStart()
 {
@@ -74,10 +74,10 @@ public void OnMapStart()
 }
 
 stock bool IsValidClient(int client)
-{ 
-	if (client <= 0 || client > MaxClients || !IsClientConnected(client) || IsFakeClient(client))
-	{
-		return false; 
-	}
-	return IsClientInGame(client); 
+{
+    if (client <= 0 || client > MaxClients || !IsClientConnected(client) || IsFakeClient(client))
+    {
+        return false;
+    }
+    return IsClientInGame(client);
 }

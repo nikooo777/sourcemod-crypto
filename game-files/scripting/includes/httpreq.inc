@@ -1,5 +1,5 @@
 #if defined _httpreq_included
-    #endinput
+#endinput
 #endif
 #define _httpreq_included
 
@@ -20,11 +20,11 @@ bool      g_bConnected[MAX_ACTIVE_REQUESTS];
 bool      g_bReady[MAX_ACTIVE_REQUESTS];
 bool      g_bDebug[MAX_ACTIVE_REQUESTS];
 any       g_aData[MAX_ACTIVE_REQUESTS];
-char	  g_cpBody[MAX_ACTIVE_REQUESTS][MAX_BODY_SIZE];
+char	  g_sBody[MAX_ACTIVE_REQUESTS][MAX_BODY_SIZE];
 
 methodmap HTTPRequest
 {
-    public HTTPRequest(const char[] method, const char[] sURL, const char[] sResponseCallback, any data=0)
+    public HTTPRequest(const char[] method, const char[] sURL, const char[] sResponseCallback, any data=0, const char[] body = "\0")
     {
         for (int i = 0; i < MAX_ACTIVE_REQUESTS; ++i) {
             if (g_hSockets[i] == null) {
@@ -35,6 +35,9 @@ methodmap HTTPRequest
                 g_tParams[i] = CreateTrie();
 
                 strcopy(g_sMethod[i], sizeof(g_sMethod[]), method);
+
+                if (body[0]!=0)
+                    strcopy(g_sBody[i], sizeof(g_sBody[]), body);
 
                 // hope it's http but ignore protocol regardless
                 char sURLParts[2][MAX_URL_LENGTH];
@@ -55,8 +58,8 @@ methodmap HTTPRequest
         return view_as<HTTPRequest>(0);
     }
 
-    property int index 
-    { 
+    property int index
+    {
         public get()
         {
             return view_as<int>(this);
@@ -151,7 +154,7 @@ methodmap HTTPRequest
             g_aData[this.index] = value;
         }
     }
-	
+
     public void Connect()
     {
         this.connecting = true;
@@ -175,6 +178,11 @@ methodmap HTTPRequest
         SocketConnect(this.socket, HTTPRequest_OnConnect, HTTPRequest_OnReceive, HTTPRequest_OnDisconnect, sHost, iPort);
     }
 
+    public void SetBody(const char[] body)
+    {
+
+    }
+
     public bool SendRequest()
     {
         if (!this.connected) { // not ready to request yet
@@ -188,7 +196,7 @@ methodmap HTTPRequest
         // split URL between host and path
         char sURLParts[2][MAX_URL_LENGTH];
         ExplodeString(g_sURL[this.index], "/", sURLParts, sizeof(sURLParts), sizeof(sURLParts[]), true);
-        
+
         char sHost[MAX_URL_LENGTH], sPath[MAX_URL_LENGTH];
         strcopy(sHost, sizeof(sHost), sURLParts[0]);
         strcopy(sPath, sizeof(sPath), "/");
@@ -200,16 +208,26 @@ methodmap HTTPRequest
         // build query string
         char sQueryString[MAX_BODY_SIZE];
         StringMapSnapshot tParamsSnapshot = this.params.Snapshot();
-        for (int i = 0; i < tParamsSnapshot.Length; ++i) {
-            tParamsSnapshot.GetKey(i, sKey, sizeof(sKey));
-            this.params.GetString(sKey, sValue, sizeof(sValue));
-            Format(sBuilder, sizeof(sBuilder), "%s=%s", sKey, sValue);
-            if (i + 1 < tParamsSnapshot.Length) { // append & for all except final param
-                StrCat(sBuilder, sizeof(sBuilder), "&");
+
+        //if this is a get request then build the query string
+        if (StrEqual(g_sMethod[this.index], "GET", false))
+        {
+            for (int i = 0; i < tParamsSnapshot.Length; ++i)
+            {
+                tParamsSnapshot.GetKey(i, sKey, sizeof(sKey));
+                this.params.GetString(sKey, sValue, sizeof(sValue));
+                Format(sBuilder, sizeof(sBuilder), "%s=%s", sKey, sValue);
+                if (i + 1 < tParamsSnapshot.Length) { // append & for all except final param
+                    StrCat(sBuilder, sizeof(sBuilder), "&");
+                }
             }
+            StrCat(sQueryString, sizeof(sQueryString), sBuilder);
         }
-        
-        StrCat(sQueryString, sizeof(sQueryString), "{\"method\":\"getaccountaddress\",\"params\":[\"niko123\"]}");
+        //otherwise it's a post, prepare the body instead
+        else
+        {
+            StrCat(sQueryString, sizeof(sQueryString), g_sBody[this.index]);
+        }
         // add query string to path if GET
         if (StrEqual(g_sMethod[this.index], "GET", false) && tParamsSnapshot.Length > 0) {
             if (StrContains(g_sMethod[this.index], "?") == -1) {
@@ -247,7 +265,7 @@ methodmap HTTPRequest
 
         // add query string to body if not GET
         if (!StrEqual(g_sMethod[this.index], "GET", false)) {
-            StrCat(sRequest, sizeof(sRequest), "{\"method\":\"getaccountaddress\",\"params\":[\"niko123\"]}");
+            StrCat(sRequest, sizeof(sRequest), sQueryString);
         }
         StrCat(sRequest, sizeof(sRequest), "\r\n");
 
@@ -308,7 +326,7 @@ public int HTTPRequest_OnReceive(Handle socket, const char[] receiveData, const 
     char sResponseStatusLine[2][128];
     ExplodeString(sResponseStatus[0], " ", sResponseStatusLine, sizeof(sResponseStatusLine), sizeof(sResponseStatusLine[])); // strip status code from rest of line
     int iStatusCode = StringToInt(sResponseStatusLine[1]);
-    
+
 
     char[][] sResponseParts = new char[2][dataSize];
     ExplodeString(sResponseStatus[1], "\r\n\r\n", sResponseParts, 2, dataSize, true); // strip status line from response body

@@ -20,6 +20,7 @@ bool      g_bConnected[MAX_ACTIVE_REQUESTS];
 bool      g_bReady[MAX_ACTIVE_REQUESTS];
 bool      g_bDebug[MAX_ACTIVE_REQUESTS];
 any       g_aData[MAX_ACTIVE_REQUESTS];
+char	  g_cpBody[MAX_ACTIVE_REQUESTS][MAX_BODY_SIZE];
 
 methodmap HTTPRequest
 {
@@ -150,7 +151,7 @@ methodmap HTTPRequest
             g_aData[this.index] = value;
         }
     }
-
+	
     public void Connect()
     {
         this.connecting = true;
@@ -206,9 +207,9 @@ methodmap HTTPRequest
             if (i + 1 < tParamsSnapshot.Length) { // append & for all except final param
                 StrCat(sBuilder, sizeof(sBuilder), "&");
             }
-            StrCat(sQueryString, sizeof(sQueryString), sBuilder);
         }
-
+        
+        StrCat(sQueryString, sizeof(sQueryString), "{\"method\":\"getaccountaddress\",\"params\":[\"niko123\"]}");
         // add query string to path if GET
         if (StrEqual(g_sMethod[this.index], "GET", false) && tParamsSnapshot.Length > 0) {
             if (StrContains(g_sMethod[this.index], "?") == -1) {
@@ -231,6 +232,7 @@ methodmap HTTPRequest
 
             this.headers.SetString("Content-Type", "application/json");
             this.headers.SetString("authorization", "Basic bGJyeTpjaGFuZ2VfbTM=");
+            this.headers.SetString("Content-Length", sQuerySize);
         }
 
         // send out headers
@@ -245,7 +247,7 @@ methodmap HTTPRequest
 
         // add query string to body if not GET
         if (!StrEqual(g_sMethod[this.index], "GET", false)) {
-            StrCat(sRequest, sizeof(sRequest), sQueryString);
+            StrCat(sRequest, sizeof(sRequest), "{\"method\":\"getaccountaddress\",\"params\":[\"niko123\"]}");
         }
         StrCat(sRequest, sizeof(sRequest), "\r\n");
 
